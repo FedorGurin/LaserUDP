@@ -10,6 +10,11 @@
 
 #include <iostream>
 #include "protocoludp.h"
+//! перекодировка кода в мм
+double covertCodeToMM(uint16_t d, double s)
+{
+    return (d * s)/0x4000;
+}
 
 int main(int argc, char *argv[])
 {
@@ -53,7 +58,7 @@ int main(int argc, char *argv[])
         QTextStream *out = buffer[packet.wDeviceSerial];
         //! кол-во записей в полученном проекте
         for(int i = 0; i < packet.bPackCount; i++)
-            (*out)<<packet.rf60xValArray[i].wMeasure<<";"<<"\n";
+            (*out)<<packet.rf60xValArray[i].wMeasure<<";"<<covertCodeToMM(packet.rf60xValArray[i].wMeasure,packet.wDeviceMeasureRange)<<";"<<"\n";
 
     });
 
