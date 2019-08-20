@@ -7,6 +7,7 @@
 #include <QFile>
 #include <QList>
 #include <QMap>
+#include <QDateTime>
 
 #include <iostream>
 #include "protocoludp.h"
@@ -21,21 +22,25 @@ int main(int argc, char *argv[])
     QCoreApplication a(argc, argv);
     QUdpSocket udpSocketRec;
 
-    bool result = udpSocketRec.bind(6080,QAbstractSocket::ReuseAddressHint);
+
+    bool result = udpSocketRec.bind(603,QAbstractSocket::ReuseAddressHint);
 
     if(result == false)
     {
         std::cout<<"Socket can`t open"<<std::endl;
         return 0;
+    }else {
+        std::cout<<"size = "<<sizeof(RF60xUDPPACKET)<<std::endl;
     }
     //! подключение сокета
-    QObject::connect(&udpSocketRec, &QUdpSocket::readyRead,[=, &udpSocketRec] () {
+    QCoreApplication::connect(&udpSocketRec, &QUdpSocket::readyRead,[=, &udpSocketRec] () {
         QByteArray datagram;
         RF60xUDPPACKET packet;
         //! список буфера с данными
-        QMap<uint16_t,QTextStream*> buffer;
+        static QMap<uint16_t,QTextStream*> buffer;
+        static QMap<uint16_t,double*> timeStep;
         //! список файлов
-        QList<QFile* > files;
+        static QList<QFile* > files;
         do
         {
             datagram.resize(udpSocketRec.pendingDatagramSize());
@@ -48,18 +53,29 @@ int main(int argc, char *argv[])
         outHead.readRawData(reinterpret_cast<char *> (&packet),sizeof(RF60xUDPPACKET));
         if(buffer.count(packet.wDeviceSerial) == 0)
         {
-            QFile *tempFile = new QFile("Dev_" + QString::number(packet.wDeviceSerial) + ".csv");
+            QFile *tempFile = new QFile("Dev_" + QString::number(packet.wDeviceSerial) + "_"+QDateTime::currentDateTime().toString("dd_hh_mm")+ ".csv");
+            tempFile->open(QIODevice::ReadWrite | QIODevice::Text);
             files.append(tempFile);
-            QTextStream out(tempFile);
-            buffer.insert(packet.wDeviceSerial,&out);
-            std::cout<<"Add files"<<std::endl;
+            QTextStream* out = new QTextStream(tempFile);
+            double *time = new double (0.0);
+            buffer.insert(packet.wDeviceSerial,out);
+            timeStep.insert(packet.wDeviceSerial,time);
+            std::cout<<"Find sensor N="<<packet.wDeviceSerial<<std::endl;
         }
         //! выбираем буфер который нужно заполнить
         QTextStream *out = buffer[packet.wDeviceSerial];
+        double *time = timeStep[packet.wDeviceSerial];
         //! кол-во записей в полученном проекте
-        for(int i = 0; i < packet.bPackCount; i++)
-            (*out)<<packet.rf60xValArray[i].wMeasure<<";"<<covertCodeToMM(packet.rf60xValArray[i].wMeasure,packet.wDeviceMeasureRange)<<";"<<"\n";
+        //for(int i = 0; i < packet.bPackCount; i++)
+        for(int i = 0; i < 168; i++)
+        {
+            (*time)+=0.005;
+            (*out)<<QString::number(*time)
+                  <<";"<<QString::number(covertCodeToMM(packet.rf60xValArray[i].wMeasure,packet.wDeviceMeasureRange))
+                  <<";"<<"\n";
+        }
 
+        out->flush();
     });
 
     return a.exec();
