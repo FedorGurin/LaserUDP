@@ -73,6 +73,14 @@ int main(int argc, char *argv[])
             (*out)<<QString::number(*time)
                   <<";"<<QString::number(covertCodeToMM(packet.rf60xValArray[i].wMeasure,packet.wDeviceMeasureRange))
                   <<";"<<"\n";
+            double j;
+            if(modf(*time,&j) == 0)
+            {
+                std::cout<<"Sensor #"<< packet.wDeviceSerial<<": d = "
+                                     << covertCodeToMM(packet.rf60xValArray[i].wMeasure,packet.wDeviceMeasureRange)
+                                     << std::endl;
+            }
+
         }
 
         out->flush();
